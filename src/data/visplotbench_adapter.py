@@ -267,7 +267,8 @@ class AdaptedTask:
     task_id: str
     original_id: str
     description: str  # format-neutral description
-    category: str  # bar, line, scatter, etc.
+    category: str  # mega-category: comparative, relational, mathematical, structural
+    fine_category: str  # fine-grained: bar, flowchart, math_function, etc.
     target_format: str  # "svg" or "tikz"
     prompt: str  # format-specific prompt for the LLM
     data_spec: dict[str, Any] = field(default_factory=dict)
@@ -459,11 +460,15 @@ class VisPlotBenchAdapter:
 
         original_id = str(task.get("id", task.get("idx", task_idx)))
 
+        fine = _classify_visplot_fine(task)
+        mega = to_mega_category(fine)
+
         return AdaptedTask(
             task_id=f"vpb_svg_{task_idx:04d}",
             original_id=original_id,
             description=desc,
-            category=_classify_visplot_category(task),
+            category=mega,
+            fine_category=fine,
             target_format="svg",
             prompt=prompt,
             data_spec=data_spec,
@@ -491,11 +496,15 @@ class VisPlotBenchAdapter:
 
         original_id = str(task.get("id", task.get("idx", task_idx)))
 
+        fine = _classify_visplot_fine(task)
+        mega = to_mega_category(fine)
+
         return AdaptedTask(
             task_id=f"vpb_tikz_{task_idx:04d}",
             original_id=original_id,
             description=desc,
-            category=_classify_visplot_category(task),
+            category=mega,
+            fine_category=fine,
             target_format="tikz",
             prompt=prompt,
             data_spec=data_spec,

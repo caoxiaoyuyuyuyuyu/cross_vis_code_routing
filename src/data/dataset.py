@@ -17,10 +17,11 @@ class TaskSample:
     """A single generation task in a specific format."""
     task_id: str
     description: str  # format-neutral description
-    category: str  # e.g., "flowchart", "bar", "geometric"
+    category: str  # mega-category: comparative, relational, mathematical, structural
     target_format: str  # "svg", "tikz", or "graphviz"
     prompt: str  # format-specific prompt for the LLM
     source: str  # "vgbench" or "visplotbench"
+    fine_category: str = ""  # fine-grained: bar, flowchart, math_function, etc.
     eligible_formats: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -115,6 +116,7 @@ class CrossFormatDataset:
                 target_format=at.target_format,
                 prompt=at.prompt,
                 source="visplotbench",
+                fine_category=getattr(at, "fine_category", ""),
                 eligible_formats=["svg", "tikz"],  # by design
                 metadata={
                     "original_id": at.original_id,

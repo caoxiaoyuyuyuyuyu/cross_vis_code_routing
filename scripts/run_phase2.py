@@ -54,15 +54,21 @@ def step_generate(cfg, model_name: str, dataset: CrossFormatDataset) -> Path:
         temperature=cfg.generation.temperature,
     )
 
+    # Build category lookup from dataset
+    task_cats = {t.task_id: (t.category, t.fine_category) for t in dataset}
+
     gen_results = generator.generate_batch(list(dataset))
     logger.info(f"Generated {len(gen_results)} outputs")
 
     # Persist
     records = []
     for r in gen_results:
+        cat, fine_cat = task_cats.get(r.task_id, ("", ""))
         records.append({
             "task_id": r.task_id,
             "target_format": r.target_format,
+            "category": cat,
+            "fine_category": fine_cat,
             "model": r.model_name,
             "generated_code": r.generated_code,
             "tokens_used": r.tokens_used,
@@ -117,12 +123,18 @@ def step_render(cfg, model_short: str, dataset: CrossFormatDataset) -> Path:
     ]
     render_results = renderer.render_batch(items)
 
+    # Build category lookup from dataset
+    task_cats = {t.task_id: (t.category, t.fine_category) for t in dataset}
+
     # Persist
     records = []
     for r in render_results:
+        cat, fine_cat = task_cats.get(r.task_id, ("", ""))
         records.append({
             "task_id": r.task_id,
             "format": r.format,
+            "category": cat,
+            "fine_category": fine_cat,
             "success": r.success,
             "error_message": r.error_message,
             "image_path": r.image_path,
