@@ -16,17 +16,117 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# VisPlotBench task categories based on visualization type
+# VisPlotBench task categories — expanded keyword lists + metadata-aware
 VISPLOT_CATEGORIES = {
-    "bar": ["bar chart", "bar graph", "bar plot", "grouped bar", "stacked bar"],
-    "line": ["line chart", "line graph", "line plot", "time series", "trend"],
-    "scatter": ["scatter plot", "scatter chart", "scatter graph", "bubble chart"],
-    "pie": ["pie chart", "pie graph", "donut chart"],
-    "heatmap": ["heatmap", "heat map", "matrix plot"],
-    "area": ["area chart", "area graph", "stacked area"],
-    "histogram": ["histogram", "distribution plot"],
-    "box": ["box plot", "boxplot", "violin plot"],
+    "bar": ["bar chart", "bar graph", "bar plot", "grouped bar", "stacked bar",
+            "horizontal bar", "vertical bar", "column chart", "column graph",
+            "barplot", "barchart", "barh"],
+    "line": ["line chart", "line graph", "line plot", "time series", "trend line",
+             "multi-line", "sparkline", "lineplot", "linechart", "curve chart",
+             "step chart", "step plot"],
+    "scatter": ["scatter plot", "scatter chart", "scatter graph", "bubble chart",
+                "bubble plot", "scatterplot", "point plot", "dot plot",
+                "regression plot", "lmplot"],
+    "pie": ["pie chart", "pie graph", "donut chart", "donut graph",
+            "ring chart", "piechart"],
+    "heatmap": ["heatmap", "heat map", "matrix plot", "correlation matrix",
+                "confusion matrix", "clustermap", "color map", "grid plot"],
+    "area": ["area chart", "area graph", "stacked area", "filled area",
+             "area plot", "stream graph", "streamgraph"],
+    "histogram": ["histogram", "distribution plot", "frequency distribution",
+                  "density plot", "kde", "distplot", "hist plot"],
+    "box": ["box plot", "boxplot", "violin plot", "violinplot", "whisker",
+            "box-and-whisker", "swarm plot", "strip plot"],
+    "radar": ["radar chart", "spider chart", "polar chart", "star chart",
+              "radial chart", "polar plot", "wind rose"],
+    "table": ["table", "tabular", "grid", "spreadsheet", "data table"],
+    "map": ["map", "choropleth", "geographic", "geospatial", "cartogram",
+            "contour map", "topographic"],
+    "treemap": ["treemap", "tree map", "sunburst", "icicle chart",
+                "partition plot"],
+    "sankey": ["sankey", "alluvial", "flow diagram", "parallel coordinates",
+               "parallel categories"],
+    "gantt": ["gantt", "timeline chart", "schedule chart", "project timeline"],
+    "waterfall": ["waterfall chart", "waterfall plot", "bridge chart"],
+    "funnel": ["funnel chart", "funnel plot", "pipeline chart"],
+    "gauge": ["gauge chart", "gauge plot", "speedometer", "dial chart"],
+    "3d": ["3d plot", "3d chart", "surface plot", "wireframe", "3d scatter",
+           "3d bar", "3d surface", "contour plot", "contour chart"],
 }
+
+# Mapping from TIGER-Lab/VisPlotBench _config + task metadata to our categories
+# The _config field tells us the original visualization language;
+# task__plot_type (if present) gives the chart type directly.
+_CONFIG_CATEGORY_HINTS = {
+    "mermaid": "diagram",  # mermaid tasks are mostly diagrams/flowcharts
+}
+
+
+def _classify_visplot_category(task: dict[str, Any]) -> str:
+    """Classify a VisPlotBench task into category.
+
+    Strategy (ordered by reliability):
+    1. Use task__plot_type metadata if present (most reliable)
+    2. Use _config field hints for non-chart languages (mermaid → diagram)
+    3. Keyword matching against description text
+    """
+    # Strategy 1: explicit plot_type metadata from VisPlotBench
+    for meta_field in ["task__plot_type", "plot_type", "chart_type", "type"]:
+        plot_type = task.get(meta_field, "")
+        if isinstance(plot_type, str) and plot_type.strip():
+            pt = plot_type.strip().lower()
+            # Direct match against our categories
+            for cat in VISPLOT_CATEGORIES:
+                if cat in pt:
+                    return cat
+            # Common plot_type values → category mapping
+            type_map = {
+                "bar": "bar", "column": "bar", "grouped_bar": "bar",
+                "stacked_bar": "bar", "horizontal_bar": "bar",
+                "line": "line", "multi_line": "line", "step": "line",
+                "scatter": "scatter", "bubble": "scatter", "point": "scatter",
+                "pie": "pie", "donut": "pie", "ring": "pie",
+                "heatmap": "heatmap", "matrix": "heatmap", "correlation": "heatmap",
+                "area": "area", "stacked_area": "area", "stream": "area",
+                "histogram": "histogram", "distribution": "histogram",
+                "density": "histogram", "kde": "histogram",
+                "box": "box", "violin": "box", "boxplot": "box",
+                "radar": "radar", "spider": "radar", "polar": "radar",
+                "table": "table",
+                "map": "map", "choropleth": "map", "geo": "map",
+                "treemap": "treemap", "sunburst": "treemap",
+                "sankey": "sankey", "alluvial": "sankey",
+                "gantt": "gantt", "timeline": "gantt",
+                "waterfall": "waterfall",
+                "funnel": "funnel",
+                "contour": "3d", "surface": "3d", "3d": "3d",
+            }
+            for key, cat in type_map.items():
+                if key in pt.replace(" ", "_"):
+                    return cat
+
+    # Strategy 2: _config field hints
+    config = task.get("_config", "")
+    if config in _CONFIG_CATEGORY_HINTS:
+        return _CONFIG_CATEGORY_HINTS[config]
+
+    # Strategy 3: keyword matching against description
+    desc = ""
+    for field_name in ["task__plot_description", "task", "Task",
+                       "task_description", "description"]:
+        val = task.get(field_name, "")
+        if isinstance(val, str) and val.strip():
+            desc = val.strip().lower()
+            break
+
+    if not desc:
+        return "other_chart"
+
+    scores: dict[str, int] = {}
+    for cat, keywords in VISPLOT_CATEGORIES.items():
+        scores[cat] = sum(1 for kw in keywords if kw in desc)
+    best = max(scores, key=scores.get)
+    return best if scores[best] > 0 else "other_chart"
 
 # Format-specific prompt templates
 SVG_PROMPT_TEMPLATE = """Generate an SVG image for the following visualization task.
@@ -106,23 +206,29 @@ class VisPlotBenchAdapter:
         tasks = []
 
         # Try HuggingFace
+        # TIGER-Lab/VisPlotBench is split into per-language configs
+        # (asymptote/html/latex/lilypond/mermaid/python/svg/vegalite);
+        # each config has a single "test" split. We load all adaptable
+        # configs and skip lilypond (audio/music only — not a plot).
         try:
             from datasets import load_dataset
-            # Try common HuggingFace paths for VisPlotBench
-            for hf_path in [
-                "VisCoder/VisPlotBench",
-                "viscoder/visplotbench",
-                "VisCoder2/VisPlotBench",
-            ]:
+            hf_path = "TIGER-Lab/VisPlotBench"
+            configs = ["asymptote", "html", "latex", "mermaid",
+                       "python", "svg", "vegalite"]
+            for cfg in configs:
                 try:
-                    logger.info(f"Trying HuggingFace: {hf_path}")
-                    ds = load_dataset(hf_path, split="test")
+                    logger.info(f"Loading {hf_path} config={cfg}")
+                    ds = load_dataset(hf_path, name=cfg, split="test")
                     for item in ds:
-                        tasks.append(dict(item))
-                    logger.info(f"Loaded {len(tasks)} tasks from {hf_path}")
-                    return tasks
-                except Exception:
+                        d = {k: v for k, v in item.items() if k != "image"}
+                        d["_config"] = cfg
+                        tasks.append(d)
+                except Exception as e:
+                    logger.warning(f"Skipping config {cfg}: {e}")
                     continue
+            if tasks:
+                logger.info(f"Loaded {len(tasks)} tasks from {hf_path}")
+                return tasks
         except ImportError:
             pass
 
@@ -161,8 +267,9 @@ class VisPlotBenchAdapter:
         Returns:
             Task description string.
         """
-        # Try common field names
-        for field_name in ["task", "Task", "task_description", "description",
+        # Try common field names. `task__plot_description` is TIGER-Lab/VisPlotBench's name.
+        for field_name in ["task__plot_description", "task", "Task",
+                           "task_description", "description",
                            "instruction", "prompt", "query"]:
             val = task.get(field_name, "")
             if isinstance(val, str) and val.strip():
@@ -178,8 +285,9 @@ class VisPlotBenchAdapter:
         Returns:
             Style description string.
         """
-        for field_name in ["style_description", "Style Description", "style",
-                           "Style", "style_desc"]:
+        # `task__plot_style` is TIGER-Lab/VisPlotBench's field name.
+        for field_name in ["task__plot_style", "style_description",
+                           "Style Description", "style", "Style", "style_desc"]:
             val = task.get(field_name, "")
             if isinstance(val, str) and val.strip():
                 return val.strip()
@@ -262,7 +370,7 @@ class VisPlotBenchAdapter:
             task_id=f"vpb_svg_{task_idx:04d}",
             original_id=original_id,
             description=desc,
-            category=_classify_visplot_category(desc),
+            category=_classify_visplot_category(task),
             target_format="svg",
             prompt=prompt,
             data_spec=data_spec,
@@ -294,7 +402,7 @@ class VisPlotBenchAdapter:
             task_id=f"vpb_tikz_{task_idx:04d}",
             original_id=original_id,
             description=desc,
-            category=_classify_visplot_category(desc),
+            category=_classify_visplot_category(task),
             target_format="tikz",
             prompt=prompt,
             data_spec=data_spec,

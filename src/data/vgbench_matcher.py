@@ -31,25 +31,57 @@ class MatchedTask:
     similarity_scores: dict[str, float] = field(default_factory=dict)  # "svg-tikz" -> score
 
 
-# Category keywords for automatic classification
+# Category keywords for VGBench tasks (diagrams, geometric figures, etc.)
 CATEGORY_KEYWORDS = {
-    "flowchart": ["flowchart", "flow chart", "workflow", "process diagram", "decision tree"],
-    "graph": ["graph", "network", "node", "edge", "directed", "undirected", "tree structure"],
-    "sequence": ["sequence", "timeline", "gantt", "schedule"],
-    "geometric": ["circle", "rectangle", "triangle", "polygon", "shape", "geometric", "line", "curve", "arc"],
-    "chart": ["bar chart", "pie chart", "histogram", "plot", "axis", "data"],
-    "diagram": ["diagram", "architecture", "system", "component", "class diagram", "ER diagram", "UML"],
-    "icon": ["icon", "logo", "symbol", "badge"],
-    "illustration": ["illustration", "scene", "picture", "drawing", "art"],
+    "flowchart": ["flowchart", "flow chart", "workflow", "process diagram",
+                  "decision tree", "state machine", "state diagram",
+                  "activity diagram", "pipeline", "process flow"],
+    "graph": ["graph", "network", "node", "edge", "directed", "undirected",
+              "tree structure", "binary tree", "linked list", "adjacency",
+              "vertex", "vertices", "spanning tree", "dag", "dependency graph"],
+    "sequence": ["sequence diagram", "timeline", "gantt", "schedule",
+                 "message sequence", "interaction diagram", "swim lane"],
+    "geometric": ["circle", "rectangle", "triangle", "polygon", "shape",
+                  "geometric", "curve", "arc", "ellipse", "square",
+                  "hexagon", "pentagon", "octagon", "parallelogram",
+                  "trapezoid", "rhombus", "star shape", "arrow",
+                  "coordinate", "angle", "perpendicular", "parallel lines",
+                  "intersection", "tangent", "radius", "diameter"],
+    "chart": ["bar chart", "pie chart", "histogram", "line chart",
+              "scatter plot", "area chart", "plot", "axis", "x-axis",
+              "y-axis", "data point", "legend", "bar graph"],
+    "diagram": ["diagram", "architecture", "system diagram", "component",
+                "class diagram", "er diagram", "uml", "entity relationship",
+                "block diagram", "circuit", "schematic", "hierarchy",
+                "organizational chart", "org chart", "mind map",
+                "venn diagram", "concept map"],
+    "icon": ["icon", "logo", "symbol", "badge", "emblem", "emoji",
+             "pictogram", "glyph"],
+    "illustration": ["illustration", "scene", "picture", "drawing",
+                     "art", "landscape", "portrait", "cartoon",
+                     "infographic", "visual", "figure", "image"],
+    "table": ["table", "grid", "matrix", "spreadsheet", "tabular",
+              "calendar", "timetable"],
+    "map": ["map", "floor plan", "layout", "blueprint", "site plan",
+            "geographic", "topology"],
 }
 
 
 def _classify_category(text: str) -> str:
-    """Classify task into category based on description keywords."""
+    """Classify task into category based on description keywords.
+
+    Uses weighted scoring: longer keyword matches get higher weight
+    to prefer specific matches over generic ones.
+    """
     text_lower = text.lower()
-    scores = {}
+    scores: dict[str, float] = {}
     for cat, keywords in CATEGORY_KEYWORDS.items():
-        scores[cat] = sum(1 for kw in keywords if kw in text_lower)
+        score = 0.0
+        for kw in keywords:
+            if kw in text_lower:
+                # Longer keywords = more specific = higher weight
+                score += len(kw.split())
+        scores[cat] = score
     best = max(scores, key=scores.get)
     return best if scores[best] > 0 else "other"
 
@@ -111,7 +143,9 @@ class VGBenchMatcher:
         try:
             from datasets import load_dataset
             logger.info("Loading VGBench VGen from HuggingFace: vgbench/VGen")
-            ds = load_dataset("vgbench/VGen", split="test")
+            # vgbench/VGen exposes a single 'train' split with a 'vformat' column
+            # (one of svg/tikz/graphviz); there is no 'test' split.
+            ds = load_dataset("vgbench/VGen", split="train")
             for item in ds:
                 fmt = item.get("vformat", "").lower().strip()
                 if fmt in tasks_by_format:

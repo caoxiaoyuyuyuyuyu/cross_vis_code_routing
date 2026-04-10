@@ -21,7 +21,7 @@ data:
     - tikz
     - graphviz
   min_cell_count: 50
-  similarity_threshold: 0.85
+  similarity_threshold: 0.70
 
 generation:
   max_new_tokens: 2048
