@@ -34,38 +34,52 @@ class MatchedTask:
 
 
 # Category keywords for VGBench tasks (diagrams, geometric figures, etc.)
+# Maps to fine categories which are then converted via to_mega_category().
 CATEGORY_KEYWORDS = {
+    # ── structural ──
     "flowchart": ["flowchart", "flow chart", "workflow", "process diagram",
                   "decision tree", "state machine", "state diagram",
-                  "activity diagram", "pipeline", "process flow"],
+                  "activity diagram", "pipeline", "process flow",
+                  "flow diagram"],
     "graph": ["graph", "network", "node", "edge", "directed", "undirected",
               "tree structure", "binary tree", "linked list", "adjacency",
               "vertex", "vertices", "spanning tree", "dag", "dependency graph"],
     "sequence": ["sequence diagram", "timeline", "gantt", "schedule",
                  "message sequence", "interaction diagram", "swim lane"],
-    "geometric": ["circle", "rectangle", "triangle", "polygon", "shape",
-                  "geometric", "curve", "arc", "ellipse", "square",
-                  "hexagon", "pentagon", "octagon", "parallelogram",
-                  "trapezoid", "rhombus", "star shape", "arrow",
-                  "coordinate", "angle", "perpendicular", "parallel lines",
-                  "intersection", "tangent", "radius", "diameter"],
-    "chart": ["bar chart", "pie chart", "histogram", "line chart",
-              "scatter plot", "area chart", "plot", "axis", "x-axis",
-              "y-axis", "data point", "legend", "bar graph"],
     "diagram": ["diagram", "architecture", "system diagram", "component",
                 "class diagram", "er diagram", "uml", "entity relationship",
                 "block diagram", "circuit", "schematic", "hierarchy",
                 "organizational chart", "org chart", "mind map",
                 "venn diagram", "concept map"],
+
+    # ── compositional ──
+    "geometric": ["circle", "rectangle", "triangle", "polygon", "shape",
+                  "geometric", "ellipse", "square",
+                  "hexagon", "pentagon", "octagon", "parallelogram",
+                  "trapezoid", "rhombus", "star shape", "arrow",
+                  "angle", "perpendicular", "parallel lines",
+                  "intersection", "tangent", "radius", "diameter"],
     "icon": ["icon", "logo", "symbol", "badge", "emblem", "emoji",
              "pictogram", "glyph"],
     "illustration": ["illustration", "scene", "picture", "drawing",
                      "art", "landscape", "portrait", "cartoon",
-                     "infographic", "visual", "figure", "image"],
-    "table": ["table", "grid", "matrix", "spreadsheet", "tabular",
+                     "infographic"],
+    "table": ["table", "spreadsheet", "tabular",
               "calendar", "timetable"],
-    "map": ["map", "floor plan", "layout", "blueprint", "site plan",
+
+    # ── comparative ──
+    "chart": ["bar chart", "pie chart", "histogram", "line chart",
+              "scatter plot", "area chart", "bar graph"],
+
+    # ── relational ──
+    "map": ["floor plan", "layout", "blueprint", "site plan",
             "geographic", "topology"],
+
+    # ── mathematical (VGBench tasks with math/coordinate content) ──
+    "math_function": ["function", "polynomial", "sine", "cosine",
+                      "parametric", "equation", "parabola", "hyperbola",
+                      "asymptote", "integral", "derivative",
+                      "coordinate system", "cartesian"],
 }
 
 
