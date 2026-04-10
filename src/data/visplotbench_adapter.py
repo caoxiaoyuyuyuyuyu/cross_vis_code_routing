@@ -90,7 +90,62 @@ VISPLOT_CATEGORIES = {
 # The _config field tells us the original visualization language;
 # task__plot_type (if present) gives the chart type directly.
 _CONFIG_CATEGORY_HINTS = {
-    "mermaid": "diagram",  # mermaid tasks are mostly diagrams/flowcharts
+    "mermaid": "diagram",      # mermaid tasks are mostly diagrams/flowcharts
+    "asymptote": "math_function",  # Asymptote is a math vector graphics language
+    "latex": "math_function",      # LaTeX plots are mostly pgfplots mathematical content
+}
+
+# Broader keywords for recovering other_chart tasks that slip through
+# the primary classifier. Applied only when primary returns "other_chart".
+# PRIORITY ORDER: mathematical > structural > comparative > relational > compositional
+# Dict iteration order (Python 3.7+) determines priority — first match wins.
+_RECOVERY_KEYWORDS = {
+    # ── Priority 1: mathematical ──
+    "math_function": [
+        "function", "ellip", "parabola", "hyperbola", "curve",
+        "equation", "log-log", "semi-log", "logarithmic", "exponential",
+        "polynomial", "sine", "cosine", "tangent",
+        "coordinate", "parametric", "vector field", "phase",
+        "fractal", "mandelbrot", "spiral", "helix",
+        "transform", "fourier", "probability", "gaussian",
+        "complex plane",
+    ],
+    "3d": [
+        "3d", "three-dimensional", "cube", "sphere", "cylinder",
+        "surface", "wireframe", "mesh", "volume", "isosurface",
+    ],
+    "signal": ["waveform", "oscillat", "spectrum", "fft", "frequency"],
+    "polar": ["polar", "angular", "radial"],
+    "contour": ["contour", "level curve", "isoline"],
+    # ── Priority 2: structural ──
+    "flowchart": [
+        "workflow", "process", "decision tree", "state machine",
+        "pipeline", "flow",
+    ],
+    "network": [
+        "network", "node", "link", "force-directed", "topology",
+        "molecular", "circuit",
+    ],
+    "diagram": [
+        "diagram", "hierarchy", "hierarchical", "tree structure",
+        "architecture", "component", "class diagram",
+        "chord diagram", "circle packing",
+    ],
+    "gantt": ["timeline", "schedule", "gantt"],
+    "treemap": ["dendrogram", "clustering"],
+    # ── Priority 3: comparative ──
+    "bar": ["lollipop", "bullet graph", "comparison chart"],
+    "heatmap": ["horizon graph", "heat lane", "punchcard",
+                "matrix visualization", "missing data"],
+    # ── Priority 4: relational ──
+    "scatter": ["data series", "data point", "regression",
+                "correlation", "relationship"],
+    "line": ["over time", "trend", "time series", "temporal"],
+    # ── Priority 5: compositional (lowest) ──
+    "geometric": ["star shape", "polygon", "geometric shape",
+                  "arrow shape", "cross shape"],
+    "illustration": ["icon", "logo", "badge", "emblem",
+                     "infographic", "pictogram", "word cloud"],
 }
 
 
@@ -143,12 +198,7 @@ def _classify_visplot_fine(task: dict[str, Any]) -> str:
                 if key in pt.replace(" ", "_"):
                     return cat
 
-    # Strategy 2: _config field hints
-    config = task.get("_config", "")
-    if config in _CONFIG_CATEGORY_HINTS:
-        return _CONFIG_CATEGORY_HINTS[config]
-
-    # Strategy 3: keyword matching against description
+    # Strategy 2: keyword matching against description
     desc = ""
     for field_name in ["task__plot_description", "task", "Task",
                        "task_description", "description"]:
@@ -158,13 +208,28 @@ def _classify_visplot_fine(task: dict[str, Any]) -> str:
             break
 
     if not desc:
-        return "other_chart"
+        # No description — use config hint as last resort
+        config = task.get("_config", "")
+        return _CONFIG_CATEGORY_HINTS.get(config, "other_chart")
 
     scores: dict[str, int] = {}
     for cat, keywords in VISPLOT_CATEGORIES.items():
         scores[cat] = sum(1 for kw in keywords if kw in desc)
     best = max(scores, key=scores.get)
-    return best if scores[best] > 0 else "other_chart"
+    if scores[best] > 0:
+        return best
+
+    # Strategy 3: recovery pass — broader keywords for unmatched tasks
+    for cat, keywords in _RECOVERY_KEYWORDS.items():
+        if any(kw in desc for kw in keywords):
+            return cat
+
+    # Strategy 4: _config field hints (fallback after all keyword attempts)
+    config = task.get("_config", "")
+    if config in _CONFIG_CATEGORY_HINTS:
+        return _CONFIG_CATEGORY_HINTS[config]
+
+    return "other_chart"
 
 # Format-specific prompt templates
 SVG_PROMPT_TEMPLATE = """Generate an SVG image for the following visualization task.

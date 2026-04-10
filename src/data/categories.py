@@ -1,14 +1,16 @@
-"""D003: Five mega-category system for cross-format dataset.
+"""D003/D007: Four mega-category system for cross-format dataset.
 
-Merges fine-grained categories into 5 mega-categories based on
+Merges fine-grained categories into 4 mega-categories based on
 visual structure similarity. Every (category × format) cell targets ≥ 50.
+
+D007: compositional merged into structural (VisPlotBench-only dataset
+has < 50 compositional tasks). Both involve spatial arrangement.
 
 Mega-categories and their visual characteristics:
 - comparative: Discrete elements compared along a shared axis (bar/box/pie)
 - relational: Continuous data mappings showing trends/correlations (line/scatter/heatmap)
 - mathematical: Equation-driven rendering with specialized coordinate systems (3d/polar/function)
-- structural: Nodes connected by edges, layout encodes relationships (flowchart/graph/network)
-- compositional: Spatial arrangement of geometric primitives (shapes/icons/tables)
+- structural: Nodes/edges/topology + geometric primitives (flowchart/graph/shapes/icons/tables)
 """
 
 # Fine-grained → mega-category mapping
@@ -48,23 +50,22 @@ MEGA_CATEGORY_MAP = {
     "treemap": "structural",
     "network": "structural",
 
-    # ── compositional: geometric primitives, non-data-driven ──
-    "geometric": "compositional",
-    "icon": "compositional",
-    "illustration": "compositional",
-    "table": "compositional",
-    "gauge": "compositional",
+    # ── structural (includes former compositional): geometric primitives ──
+    # D007: compositional merged into structural (compositional < 50 in
+    # VisPlotBench-only dataset). Both involve spatial arrangement.
+    "geometric": "structural",
+    "icon": "structural",
+    "illustration": "structural",
+    "table": "structural",
+    "gauge": "structural",
 
-    # ── catch-alls: reclassified by description keywords ──
-    # These should ideally not appear after classifier improvements,
-    # but if they do, route to compositional (smallest category).
-    "other": "compositional",
-    "other_chart": "compositional",
+    # ── catch-alls: route to structural as largest spatial category ──
+    "other": "structural",
+    "other_chart": "structural",
 }
 
 VALID_MEGA_CATEGORIES = [
-    "comparative", "relational", "mathematical",
-    "structural", "compositional",
+    "comparative", "relational", "mathematical", "structural",
 ]
 
 

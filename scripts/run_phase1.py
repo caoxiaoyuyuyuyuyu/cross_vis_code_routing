@@ -14,7 +14,6 @@ import sys
 from pathlib import Path
 
 from src.data.dataset import CrossFormatDataset
-from src.data.vgbench_matcher import VGBenchMatcher
 from src.data.visplotbench_adapter import VisPlotBenchAdapter
 from src.utils.config import Config
 
@@ -30,32 +29,9 @@ def main(config_path: str = "configs/default.yaml") -> None:
     output_dir = Path(cfg.data.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # ──────────────── Step 1: VGBench matching ────────────────
+    # ──────────────── Step 1: VisPlotBench adaptation ────────────────
     logger.info("=" * 60)
-    logger.info("Step 1: VGBench cross-format semantic matching")
-    logger.info("=" * 60)
-
-    matcher = VGBenchMatcher(
-        vgbench_dir=cfg.data.vgbench_dir,
-        embed_model=cfg.models.embed_model,
-        similarity_threshold=cfg.data.similarity_threshold,
-    )
-    matched_tasks = matcher.run()
-    logger.info(f"VGBench matched tasks: {len(matched_tasks)}")
-
-    # Save intermediate results
-    matched_path = output_dir / "vgbench_matched.json"
-    with open(matched_path, "w") as f:
-        from dataclasses import asdict
-        json.dump([asdict(m) for m in matched_tasks], f, indent=2, ensure_ascii=False)
-    logger.info(f"Saved VGBench matches to {matched_path}")
-
-    # Release embedding model GPU memory before continuing
-    matcher.cleanup()
-
-    # ──────────────── Step 2: VisPlotBench adaptation ────────────────
-    logger.info("=" * 60)
-    logger.info("Step 2: VisPlotBench SVG+TikZ adaptation")
+    logger.info("Step 1: VisPlotBench SVG+TikZ adaptation (D006: visplotbench-only)")
     logger.info("=" * 60)
 
     adapter = VisPlotBenchAdapter(visplotbench_dir=cfg.data.visplotbench_dir)
@@ -69,12 +45,12 @@ def main(config_path: str = "configs/default.yaml") -> None:
         json.dump([asdict(a) for a in adapted_tasks], f, indent=2, ensure_ascii=False)
     logger.info(f"Saved VisPlotBench adaptations to {adapted_path}")
 
-    # ──────────────── Step 3: Combine + Audit ────────────────
+    # ──────────────── Step 2: Build dataset + Audit ────────────────
     logger.info("=" * 60)
-    logger.info("Step 3: Building unified dataset + cell audit")
+    logger.info("Step 2: Building unified dataset + cell audit")
     logger.info("=" * 60)
 
-    dataset = CrossFormatDataset.from_sources(matched_tasks, adapted_tasks)
+    dataset = CrossFormatDataset.from_sources([], adapted_tasks)
 
     # Cell count report
     report = dataset.cell_count_report(min_count=cfg.data.min_cell_count)
@@ -92,7 +68,7 @@ def main(config_path: str = "configs/default.yaml") -> None:
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
-    # ──────────────── Step 4: Save dataset ────────────────
+    # ──────────────── Step 3: Save dataset ────────────────
     dataset_path = output_dir / "dataset.jsonl"
     dataset.save(dataset_path)
     logger.info(f"Dataset saved to {dataset_path}")
@@ -104,7 +80,6 @@ def main(config_path: str = "configs/default.yaml") -> None:
     logger.info(f"  Unique tasks: {dataset.unique_tasks()}")
     logger.info(f"  Categories: {dataset.get_categories()}")
     logger.info(f"  Formats: {dataset.get_formats()}")
-    logger.info(f"  VGBench: {summary['by_source']['vgbench']}")
     logger.info(f"  VisPlotBench: {summary['by_source']['visplotbench']}")
 
     # Check if we meet the minimum threshold
