@@ -23,7 +23,7 @@ data:
   similarity_threshold: 0.70
 
 generation:
-  max_new_tokens: 2048
+  max_new_tokens: 4096
   temperature: 0.0
   top_p: 1.0
   batch_size: 8
