@@ -19,7 +19,6 @@ data:
   formats:
     - svg
     - tikz
-    - graphviz
   min_cell_count: 50
   similarity_threshold: 0.70
 

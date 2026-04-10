@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from src.data.categories import to_mega_category
+
 logger = logging.getLogger(__name__)
 
 # VisPlotBench task categories — expanded keyword lists + metadata-aware
@@ -63,23 +65,29 @@ _CONFIG_CATEGORY_HINTS = {
 
 
 def _classify_visplot_category(task: dict[str, Any]) -> str:
-    """Classify a VisPlotBench task into category.
+    """Classify a VisPlotBench task into mega-category.
 
     Strategy (ordered by reliability):
     1. Use task__plot_type metadata if present (most reliable)
     2. Use _config field hints for non-chart languages (mermaid → diagram)
     3. Keyword matching against description text
+
+    Returns mega-category via to_mega_category().
     """
+    fine = _classify_visplot_fine(task)
+    return to_mega_category(fine)
+
+
+def _classify_visplot_fine(task: dict[str, Any]) -> str:
+    """Classify into fine-grained category (internal)."""
     # Strategy 1: explicit plot_type metadata from VisPlotBench
     for meta_field in ["task__plot_type", "plot_type", "chart_type", "type"]:
         plot_type = task.get(meta_field, "")
         if isinstance(plot_type, str) and plot_type.strip():
             pt = plot_type.strip().lower()
-            # Direct match against our categories
             for cat in VISPLOT_CATEGORIES:
                 if cat in pt:
                     return cat
-            # Common plot_type values → category mapping
             type_map = {
                 "bar": "bar", "column": "bar", "grouped_bar": "bar",
                 "stacked_bar": "bar", "horizontal_bar": "bar",
@@ -169,16 +177,6 @@ class AdaptedTask:
     prompt: str  # format-specific prompt for the LLM
     data_spec: dict[str, Any] = field(default_factory=dict)
     style_spec: dict[str, Any] = field(default_factory=dict)
-
-
-def _classify_visplot_category(text: str) -> str:
-    """Classify a VisPlotBench task into category."""
-    text_lower = text.lower()
-    scores = {}
-    for cat, keywords in VISPLOT_CATEGORIES.items():
-        scores[cat] = sum(1 for kw in keywords if kw in text_lower)
-    best = max(scores, key=scores.get)
-    return best if scores[best] > 0 else "other_chart"
 
 
 class VisPlotBenchAdapter:

@@ -49,16 +49,6 @@ Requirements:
 
 Output ONLY the TikZ code.""",
 
-    "graphviz": """Generate Graphviz DOT code based on the following description.
-
-Description: {description}
-
-Requirements:
-- Output valid DOT code that renders with the dot/neato engine
-- Use appropriate node shapes, edge styles, and layout
-- Faithfully represent the description
-
-Output ONLY the DOT code, starting with digraph or graph.""",
 }
 
 

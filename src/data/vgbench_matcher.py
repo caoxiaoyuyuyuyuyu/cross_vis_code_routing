@@ -1,11 +1,11 @@
-"""VGBench cross-format semantic matching.
+"""VGBench cross-format semantic matching (SVG + TikZ only).
 
-Identifies semantically similar tasks across VGBench's format-specific
-subsets (SVG, TikZ, Graphviz), extracts format-neutral task descriptions,
-and builds matched groups for cross-format evaluation.
+Identifies semantically similar tasks across VGBench's SVG and TikZ
+subsets, extracts format-neutral task descriptions, and builds matched
+pairs for cross-format evaluation. Graphviz dropped per D002.
 
 Data source: HuggingFace `vgbench/VGen` (5843 tasks)
-Key fields: vformat (svg/tikz/graphviz), caption (text description), code, idx
+Key fields: vformat (svg/tikz), caption (text description), code, idx
 """
 
 import logging
@@ -16,6 +16,8 @@ from typing import Any
 import numpy as np
 import torch
 from tqdm import tqdm
+
+from src.data.categories import to_mega_category
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +70,10 @@ CATEGORY_KEYWORDS = {
 
 
 def _classify_category(text: str) -> str:
-    """Classify task into category based on description keywords.
+    """Classify task into mega-category based on description keywords.
 
     Uses weighted scoring: longer keyword matches get higher weight
-    to prefer specific matches over generic ones.
+    to prefer specific matches over generic ones. Returns mega-category.
     """
     text_lower = text.lower()
     scores: dict[str, float] = {}
@@ -79,18 +81,18 @@ def _classify_category(text: str) -> str:
         score = 0.0
         for kw in keywords:
             if kw in text_lower:
-                # Longer keywords = more specific = higher weight
                 score += len(kw.split())
         scores[cat] = score
     best = max(scores, key=scores.get)
-    return best if scores[best] > 0 else "other"
+    fine = best if scores[best] > 0 else "other"
+    return to_mega_category(fine)
 
 
 class VGBenchMatcher:
     """Cross-format semantic matching for VGBench tasks.
 
     Uses sentence embeddings to find semantically similar tasks
-    across SVG/TikZ/Graphviz subsets of VGBench.
+    across SVG and TikZ subsets of VGBench (Graphviz dropped per D002).
 
     Args:
         vgbench_dir: Path to local VGBench data (or HuggingFace cache).
@@ -136,7 +138,7 @@ class VGBenchMatcher:
             keys: idx, caption, code, vformat.
         """
         tasks_by_format: dict[str, list[dict[str, Any]]] = {
-            "svg": [], "tikz": [], "graphviz": []
+            "svg": [], "tikz": []
         }
 
         # Try loading from HuggingFace
